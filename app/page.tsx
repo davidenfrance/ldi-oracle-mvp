@@ -12,7 +12,7 @@ export default function Home() {
         <li>GET /api/v1/oracle-identity</li>
         <li>GET /api/v1/cover?device_id= or ?agent_id=</li>
         <li>POST /api/v1/cover (signed with device key_id)</li>
-        <li>POST /api/v1/cover/{id}/revoke</li>
+        <li>POST /api/v1/cover/[id]/revoke</li>
       </ul>
       <p>Verified. Validated. Vested.</p>
     </main>
