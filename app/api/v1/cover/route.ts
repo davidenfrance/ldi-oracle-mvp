@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { ensureSchema, lookupCover, upsertRecord } from "@/lib/db";
 import { normalizeHex, verifyPublishSignature } from "@/lib/auth";
 import type { CoverRecord } from "@/lib/types";
+import { getOffer, ensureOfferSchema } from "@/lib/offers";
 
 export const dynamic = "force-dynamic";
 
@@ -20,7 +21,7 @@ function present(record: CoverRecord) {
     policy_reference: record.policy_reference ?? null,
     issued_at: record.issued_at,
     expires_at: record.expires_at,
-    note: "This is not a Bind and not a policy. cover_purchasable means an interrogating agent may request a separate paid cover contract.",
+    note: "This is not a Bind and not a policy.",
   };
 }
 
@@ -30,8 +31,36 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const device_id = searchParams.get("device_id") || undefined;
     const agent_id = searchParams.get("agent_id") || undefined;
+    const accept_id = searchParams.get("accept_id") || searchParams.get("offer_id") || undefined;
+    const open = process.env.OPEN_COVER_QUERIES === "true";
     if (!device_id && !agent_id) {
       return NextResponse.json({ error: "device_id_or_agent_id_required" }, { status: 400 });
+    }
+    if (!open) {
+      await ensureOfferSchema();
+      if (!accept_id) {
+        return NextResponse.json(
+          {
+            error: "contract_required",
+            form_id: "FS-QF-1.2",
+            offer: "POST /api/v1/cover/offer",
+            accept: "POST /api/v1/cover/accept",
+            note: "Confirmation is released only after the Enquirer returns a signed FS-QF-1.2 acceptance.",
+          },
+          { status: 403 }
+        );
+      }
+      const offer = await getOffer(accept_id);
+      if (!offer || offer.status !== "accepted") {
+        return NextResponse.json({ error: "accept_required" }, { status: 403 });
+      }
+      const wantDev = device_id ? normalizeHex(device_id) : null;
+      if (wantDev && offer.device_id && offer.device_id !== wantDev) {
+        return NextResponse.json({ error: "offer_device_mismatch" }, { status: 403 });
+      }
+      if (agent_id && offer.agent_id && offer.agent_id !== agent_id) {
+        return NextResponse.json({ error: "offer_agent_mismatch" }, { status: 403 });
+      }
     }
     const record = await lookupCover({
       device_id: device_id ? normalizeHex(device_id) : undefined,
