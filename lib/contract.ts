@@ -1,12 +1,11 @@
 import { createHash, createPrivateKey, createPublicKey, sign, verify } from "crypto";
-import { readFileSync } from "fs";
-import { join } from "path";
 import { normalizeHex, normalizePem } from "./auth";
+import { FORM_TEXT } from "./form-text";
 
 export const FORM_ID = "FS-QF-1.2";
 
 export function loadFormText(): string {
-  return readFileSync(join(process.cwd(), "lib/forms/FS-QF-1.2.txt"), "utf8");
+  return FORM_TEXT;
 }
 
 export function formHash(text?: string): string {
