@@ -7,6 +7,9 @@ export type BindBand = {
   claims_window_ms: number;
   insured_event: string;
   requires_hsm_presence: boolean;
+  purchaser_must_have_lde_wallet: boolean;
+  claims_require_full_cdd: boolean;
+  form_id: string;
 };
 
 export type BindMenu = {
@@ -16,13 +19,25 @@ export type BindMenu = {
   form_id: string;
   menu_expires_at: string;
   currency: "GENIUS_USD";
-  purchaser_must_have_lde_wallet: true;
   bind_available: boolean;
   note: string;
   bands: BindBand[];
 };
 
 const ALL_BANDS: BindBand[] = [
+  {
+    band_id: "b-10k",
+    limit_usd: 10_000,
+    premium_usd: "2.00",
+    quote_life_ms: 120_000,
+    cover_life_ms: 86_400_000,
+    claims_window_ms: 7_776_000_000,
+    insured_event: "recorded_controller_mismatch",
+    requires_hsm_presence: false,
+    purchaser_must_have_lde_wallet: false,
+    claims_require_full_cdd: true,
+    form_id: "FS-BIND-10K-1.0",
+  },
   {
     band_id: "b-50k",
     limit_usd: 50_000,
@@ -32,6 +47,9 @@ const ALL_BANDS: BindBand[] = [
     claims_window_ms: 7_776_000_000,
     insured_event: "recorded_controller_mismatch",
     requires_hsm_presence: false,
+    purchaser_must_have_lde_wallet: true,
+    claims_require_full_cdd: true,
+    form_id: "FS-BIND-1.0",
   },
   {
     band_id: "b-250k",
@@ -42,6 +60,9 @@ const ALL_BANDS: BindBand[] = [
     claims_window_ms: 7_776_000_000,
     insured_event: "recorded_controller_mismatch",
     requires_hsm_presence: false,
+    purchaser_must_have_lde_wallet: true,
+    claims_require_full_cdd: true,
+    form_id: "FS-BIND-1.0",
   },
   {
     band_id: "b-1m",
@@ -52,6 +73,9 @@ const ALL_BANDS: BindBand[] = [
     claims_window_ms: 7_776_000_000,
     insured_event: "recorded_controller_mismatch",
     requires_hsm_presence: false,
+    purchaser_must_have_lde_wallet: true,
+    claims_require_full_cdd: true,
+    form_id: "FS-BIND-1.0",
   },
   {
     band_id: "b-5m",
@@ -62,6 +86,9 @@ const ALL_BANDS: BindBand[] = [
     claims_window_ms: 7_776_000_000,
     insured_event: "recorded_controller_mismatch",
     requires_hsm_presence: true,
+    purchaser_must_have_lde_wallet: true,
+    claims_require_full_cdd: true,
+    form_id: "FS-BIND-1.0",
   },
   {
     band_id: "b-20m",
@@ -72,6 +99,9 @@ const ALL_BANDS: BindBand[] = [
     claims_window_ms: 7_776_000_000,
     insured_event: "recorded_controller_mismatch",
     requires_hsm_presence: true,
+    purchaser_must_have_lde_wallet: true,
+    claims_require_full_cdd: true,
+    form_id: "FS-BIND-1.0",
   },
 ];
 
@@ -92,11 +122,10 @@ export function buildBindMenu(opts: {
     form_id: "FS-BIND-1.0",
     menu_expires_at: new Date(Date.now() + 15 * 60 * 1000).toISOString(),
     currency: "GENIUS_USD",
-    purchaser_must_have_lde_wallet: true,
     bind_available: available,
     note: available
-      ? "Invitation to treat. Not a Bind. Purchaser must hold an LDE wallet. POST /api/v1/cover/bind with band_id when the session requires cover."
-      : "Bands shown for planning. Bind is not available on this device until cover_purchasable is true and the purchaser holds an LDE wallet.",
+      ? "Invitation to treat. Not a Bind. Band b-10k may be purchased with a signature and public key only. Bands above 10,000 GENIUS USD require an LDE wallet. Claims on b-10k require full AML/KYC documents. POST /api/v1/cover/bind after signing the band form."
+      : "Bands shown for planning. Bind is not available on this device until cover_purchasable is true.",
     bands,
   };
 }
