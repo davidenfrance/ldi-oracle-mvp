@@ -3,6 +3,7 @@ import { normalizeHex } from "@/lib/auth";
 import { lookupCover, ensureSchema } from "@/lib/db";
 import { FORM_ID, formHash, canonicalAccept, verifyEnquirerSignature } from "@/lib/contract";
 import { ensureOfferSchema, getOffer, markAccepted } from "@/lib/offers";
+import { buildBindMenu } from "@/lib/bind-menu";
 
 export const dynamic = "force-dynamic";
 
@@ -60,10 +61,17 @@ export async function POST(req: NextRequest) {
         cover_status: "none",
         cover_in_force: false,
         cover_purchasable: false,
+        bind_menu: buildBindMenu({
+          device_id: offer.device_id,
+          agent_id: offer.agent_id,
+          cover_purchasable: false,
+        }),
         note: "Contract accepted. No live LDI record for this Authenticating Device or agent.",
       });
     }
     const cover_in_force = record.cover_status === "active";
+    const cover_purchasable =
+      record.cover_purchasable && record.onboarding_complete && record.cover_status !== "cancelled";
     return NextResponse.json({
       accepted: true,
       offer_id: offer.offer_id,
@@ -75,12 +83,18 @@ export async function POST(req: NextRequest) {
       recorded_controller_name: record.recorded_controller_name,
       cover_status: record.cover_status,
       cover_in_force,
-      cover_purchasable: record.cover_purchasable && record.onboarding_complete && record.cover_status !== "cancelled",
+      cover_purchasable,
       limit_band_usd: record.limit_band_usd ?? null,
       policy_reference: record.policy_reference ?? null,
       issued_at: record.issued_at,
       expires_at: record.expires_at,
-      note: "Released after signed FS-QF-1.2 acceptance. This is not a Bind.",
+      bind_menu: buildBindMenu({
+        device_id: record.device_id,
+        agent_id: record.agent_id,
+        cover_purchasable,
+        standing_limit_usd: record.limit_band_usd,
+      }),
+      note: "Released after signed FS-QF-1.2 acceptance. This is not a Bind. Use bind_menu.bands when the session requires cover.",
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "accept_failed";
