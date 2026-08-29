@@ -3,11 +3,14 @@ import { ensureSchema, lookupCover, upsertRecord } from "@/lib/db";
 import { normalizeHex, verifyPublishSignature } from "@/lib/auth";
 import type { CoverRecord } from "@/lib/types";
 import { getOffer, ensureOfferSchema } from "@/lib/offers";
+import { buildBindMenu } from "@/lib/bind-menu";
 
 export const dynamic = "force-dynamic";
 
 function present(record: CoverRecord) {
   const cover_in_force = record.cover_status === "active";
+  const cover_purchasable =
+    record.cover_purchasable && record.onboarding_complete && record.cover_status !== "cancelled";
   return {
     record_id: record.record_id,
     device_id: record.device_id,
@@ -16,12 +19,18 @@ function present(record: CoverRecord) {
     onboarding_complete: record.onboarding_complete,
     cover_status: record.cover_status,
     cover_in_force,
-    cover_purchasable: record.cover_purchasable && record.onboarding_complete && record.cover_status !== "cancelled",
+    cover_purchasable,
     limit_band_usd: record.limit_band_usd ?? null,
     policy_reference: record.policy_reference ?? null,
     issued_at: record.issued_at,
     expires_at: record.expires_at,
-    note: "This is not a Bind and not a policy.",
+    bind_menu: buildBindMenu({
+      device_id: record.device_id,
+      agent_id: record.agent_id,
+      cover_purchasable,
+      standing_limit_usd: record.limit_band_usd,
+    }),
+    note: "This is not a Bind and not a policy. bind_menu is an invitation to treat.",
   };
 }
 
@@ -73,6 +82,11 @@ export async function GET(req: NextRequest) {
         cover_status: "none",
         cover_in_force: false,
         cover_purchasable: false,
+        bind_menu: buildBindMenu({
+          device_id: device_id ? normalizeHex(device_id) : null,
+          agent_id,
+          cover_purchasable: false,
+        }),
         note: "No live LDI record for this Authenticating Device or agent.",
       });
     }
