@@ -32,7 +32,7 @@ function publicKeyFromHex(pubHex: string) {
   });
 }
 
-function verifyEd25519(message: string, publicKeyHex: string, signatureHex: string): boolean {
+export function verifyKeySignature(message: string, publicKeyHex: string, signatureHex: string): boolean {
   try {
     const key = publicKeyFromHex(publicKeyHex);
     const sig = Buffer.from(normalizeHex(signatureHex), "hex");
@@ -40,6 +40,10 @@ function verifyEd25519(message: string, publicKeyHex: string, signatureHex: stri
   } catch {
     return false;
   }
+}
+
+function verifyEd25519(message: string, publicKeyHex: string, signatureHex: string): boolean {
+  return verifyKeySignature(message, publicKeyHex, signatureHex);
 }
 
 export function canonicalPublishPayload(record: CoverRecord): string {

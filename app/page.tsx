@@ -16,7 +16,9 @@ export default function Home() {
         <li>POST /api/v1/cover/offer</li>
         <li>POST /api/v1/cover/accept</li>
         <li>GET /api/v1/cover?device_id=&amp;accept_id= (after accept)</li>
-        <li>POST /api/v1/cover/bind (preview only; settlement not on this host)</li>
+        <li>POST /api/v1/cover/bind (preview only; GENIUS USD settlement not on this host)</li>
+        <li>GET /api/v1/cover/bind/settle-mvp</li>
+        <li>POST /api/v1/cover/bind/settle-mvp (GENIUS_USD_MVP receipt; not GENIUS USD)</li>
         <li>POST /api/v1/cover (publish signed cover row)</li>
         <li>POST /api/v1/cover/[id]/revoke</li>
       </ul>
