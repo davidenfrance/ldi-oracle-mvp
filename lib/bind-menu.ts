@@ -75,7 +75,7 @@ const ALL_BANDS: BindBand[] = [
     requires_hsm_presence: false,
     purchaser_must_have_lde_wallet: true,
     claims_require_full_cdd: true,
-    form_id: "FS-BIND-1.0",
+    form_id: "FS-BIND-1M-1.0",
   },
   {
     band_id: "b-5m",
@@ -124,7 +124,7 @@ export function buildBindMenu(opts: {
     currency: "GENIUS_USD",
     bind_available: available,
     note: available
-      ? "Invitation to treat. Not a Bind. Band b-10k may be purchased with a signature and public key only. Bands above 10,000 GENIUS USD require an LDE wallet. Claims on b-10k require full AML/KYC documents. POST /api/v1/cover/bind after signing the band form."
+      ? "Invitation to treat. Not a Bind. Band b-10k uses FS-BIND-10K-1.0. Band b-1m uses FS-BIND-1M-1.0 and requires an LDE wallet."
       : "Bands shown for planning. Bind is not available on this device until cover_purchasable is true.",
     bands,
   };

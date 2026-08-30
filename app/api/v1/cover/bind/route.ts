@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { findBand } from "@/lib/bind-menu";
 import { BIND_10K_FORM_ID, bind10kFormHash, bind10kFormText } from "@/lib/bind-10k-form";
+import { BIND_1M_FORM_ID, bind1mFormHash, bind1mFormText } from "@/lib/bind-1m-form";
 
 export const dynamic = "force-dynamic";
 
@@ -20,10 +21,19 @@ export async function GET(req: NextRequest) {
       note: "The Enquirer must read this wording and sign it with its public key before Bind. This is not cover until Bind and premium settlement.",
     });
   }
+  if (band.form_id === BIND_1M_FORM_ID) {
+    return NextResponse.json({
+      form_id: BIND_1M_FORM_ID,
+      form_hash: bind1mFormHash(),
+      form_text: bind1mFormText(),
+      band,
+      note: "The Enquirer must read FS-BIND-1M-1.0 and sign form_hash plus the commercial fields with its LDE wallet. MVP settlement uses GENIUS_USD_MVP.",
+    });
+  }
   return NextResponse.json({
     form_id: band.form_id,
     band,
-    note: "Higher bands use FS-BIND-1.0 and require an LDE wallet. Form text for those bands is issued with the Bind quote.",
+    note: "Form text for this band is not issued on this host yet.",
   });
 }
 
@@ -65,6 +75,24 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "form_hash_mismatch" }, { status: 409 });
       }
     }
+    if (band.form_id === BIND_1M_FORM_ID) {
+      if (body.form_id && body.form_id !== BIND_1M_FORM_ID) {
+        return NextResponse.json({ error: "form_id_mismatch" }, { status: 409 });
+      }
+      if (body.form_hash && body.form_hash !== bind1mFormHash()) {
+        return NextResponse.json({ error: "form_hash_mismatch" }, { status: 409 });
+      }
+      return NextResponse.json(
+        {
+          bound: false,
+          error: "use_settle_mvp_for_1m",
+          form_id: BIND_1M_FORM_ID,
+          form_hash: bind1mFormHash(),
+          note: "GENIUS USD settlement is not on this host. For an MVP Bind sign FS-BIND-1M-1.0 via POST /api/v1/cover/bind/settle-mvp.",
+        },
+        { status: 501 }
+      );
+    }
     return NextResponse.json(
       {
         bound: false,
@@ -76,18 +104,7 @@ export async function POST(req: NextRequest) {
         device_id: body.device_id || null,
         enquirer_key_id: body.enquirer_key_id,
         band,
-        bind_preview: {
-          limit_usd: band.limit_usd,
-          premium_usd: band.premium_usd,
-          currency: "GENIUS_USD",
-          cover_life_ms: band.cover_life_ms,
-          claims_window_ms: band.claims_window_ms,
-          insured_event: band.insured_event,
-          requires_hsm_presence: band.requires_hsm_presence,
-          purchaser_must_have_lde_wallet: band.purchaser_must_have_lde_wallet,
-          claims_require_full_cdd: band.claims_require_full_cdd,
-        },
-        note: "Band accepted as a preview. Premium collection and bind_id issuance are not on this host. For b-10k, no claim is payable until AML/KYC documents for the principal and payee are produced and sanctions screening clears.",
+        note: "Band accepted as a preview. Premium collection and bind_id issuance are not on this host.",
       },
       { status: 501 }
     );

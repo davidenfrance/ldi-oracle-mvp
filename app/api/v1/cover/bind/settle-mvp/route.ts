@@ -2,11 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { normalizeHex } from "@/lib/auth";
 import { ensureSchema, lookupCover } from "@/lib/db";
 import { ensureMvpBindSchema, insertMvpBind, getMvpBind } from "@/lib/mvp-bind-db";
+import { BIND_1M_FORM_ID, bind1mFormHash, bind1mFormText } from "@/lib/bind-1m-form";
 import {
   MVP_ASSET,
   MVP_RAIL,
   buildSettleMvpIntent,
   canonicalSettleMvpIntent,
+  formForBand,
   newMvpBind,
   requireBand,
   verifySettleMvpSignature,
@@ -39,6 +41,7 @@ export async function GET(req: NextRequest) {
     const device_id = searchParams.get("device_id") || "";
     const purchaser = searchParams.get("purchaser_lde_wallet_key_id") || "";
     const band = requireBand(band_id);
+    const form = formForBand(band);
     const intent =
       device_id && purchaser
         ? buildSettleMvpIntent({
@@ -51,10 +54,13 @@ export async function GET(req: NextRequest) {
       rail: MVP_RAIL,
       asset: MVP_ASSET,
       not_genius_usd: true,
+      form_id: form?.form_id || band.form_id,
+      form_hash: form?.form_hash || null,
+      form_text: band.form_id === BIND_1M_FORM_ID ? bind1mFormText() : null,
       band,
       intent,
       intent_canonical: intent ? canonicalSettleMvpIntent(intent) : null,
-      note: "Sign intent_canonical with the purchaser LDE wallet private key. POST the signature. This is not GENIUS USD.",
+      note: "Read form_text. Sign intent_canonical, which includes form_id and form_hash. POST the signature. This is not GENIUS USD.",
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "settle_mvp_get_failed";
@@ -73,6 +79,8 @@ export async function POST(req: NextRequest) {
       agent_id?: string;
       purchaser_lde_wallet_key_id?: string;
       menu_id?: string;
+      form_id?: string;
+      form_hash?: string;
       signature?: string;
     };
     if (!body.band_id || !body.device_id || !body.purchaser_lde_wallet_key_id || !body.signature) {
@@ -89,6 +97,14 @@ export async function POST(req: NextRequest) {
     }
     if (band.purchaser_must_have_lde_wallet && !body.purchaser_lde_wallet_key_id) {
       return NextResponse.json({ error: "lde_wallet_required" }, { status: 403 });
+    }
+    if (band.form_id === BIND_1M_FORM_ID) {
+      if (body.form_id && body.form_id !== BIND_1M_FORM_ID) {
+        return NextResponse.json({ error: "form_id_mismatch" }, { status: 409 });
+      }
+      if (body.form_hash && body.form_hash !== bind1mFormHash()) {
+        return NextResponse.json({ error: "form_hash_mismatch" }, { status: 409 });
+      }
     }
     const device_id = normalizeHex(body.device_id);
     const subject = await lookupCover({ device_id });
@@ -125,9 +141,11 @@ export async function POST(req: NextRequest) {
         asset: MVP_ASSET,
         rail: MVP_RAIL,
         not_genius_usd: true,
+        form_id: intent.form_id,
+        form_hash: intent.form_hash,
         bind: saved,
         intent,
-        note: "MVP Bind in force for cover_ends_at. Premium was not collected in GENIUS USD or USD.",
+        note: "FS-BIND-1M-1.0 accepted on the MVP rail. Premium was not collected in GENIUS USD or USD.",
       },
       { status: 201 }
     );

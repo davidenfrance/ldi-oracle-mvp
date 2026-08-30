@@ -1,12 +1,15 @@
 import { randomUUID } from "crypto";
 import { findBand, type BindBand } from "./bind-menu";
 import { normalizeHex, verifyKeySignature } from "./auth";
+import { BIND_1M_FORM_ID, bind1mFormHash } from "./bind-1m-form";
 
 export const MVP_ASSET = "GENIUS_USD_MVP";
 export const MVP_RAIL = "lde_mvp_settlement";
 
 export type SettleMvpIntent = {
   action: "settle-mvp";
+  form_id: string;
+  form_hash: string;
   asset: typeof MVP_ASSET;
   rail: typeof MVP_RAIL;
   band_id: string;
@@ -38,13 +41,23 @@ export type MvpBind = {
   created_at: string;
 };
 
+export function formForBand(band: BindBand): { form_id: string; form_hash: string } | null {
+  if (band.form_id === BIND_1M_FORM_ID) {
+    return { form_id: BIND_1M_FORM_ID, form_hash: bind1mFormHash() };
+  }
+  return null;
+}
+
 export function buildSettleMvpIntent(opts: {
   band: BindBand;
   device_id: string;
   purchaser_lde_wallet_key_id: string;
 }): SettleMvpIntent {
+  const form = formForBand(opts.band);
   return {
     action: "settle-mvp",
+    form_id: form?.form_id || opts.band.form_id,
+    form_hash: form?.form_hash || "",
     asset: MVP_ASSET,
     rail: MVP_RAIL,
     band_id: opts.band.band_id,
@@ -59,6 +72,8 @@ export function buildSettleMvpIntent(opts: {
 export function canonicalSettleMvpIntent(intent: SettleMvpIntent): string {
   return JSON.stringify({
     action: "settle-mvp",
+    form_id: intent.form_id,
+    form_hash: intent.form_hash,
     asset: MVP_ASSET,
     rail: MVP_RAIL,
     band_id: intent.band_id,
