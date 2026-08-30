@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
         found: true,
         bound: true,
         settlement: "mvp",
-        ...row,
+        bind: row,
         note: "MVP Bind only. Premium was not collected in GENIUS USD or USD.",
       });
     }
@@ -122,10 +122,10 @@ export async function POST(req: NextRequest) {
       {
         bound: true,
         settlement: "mvp",
-        not_genius_usd: true,
         asset: MVP_ASSET,
         rail: MVP_RAIL,
-        ...saved,
+        not_genius_usd: true,
+        bind: saved,
         intent,
         note: "MVP Bind in force for cover_ends_at. Premium was not collected in GENIUS USD or USD.",
       },
