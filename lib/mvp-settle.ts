@@ -1,7 +1,7 @@
 import { randomUUID } from "crypto";
 import { findBand, type BindBand } from "./bind-menu";
 import { normalizeHex, verifyKeySignature } from "./auth";
-import { BIND_1M_FORM_ID, bind1mFormHash } from "./bind-1m-form";
+import { issuedForm } from "./bind-issued-forms";
 
 export const MVP_ASSET = "GENIUS_USD_MVP";
 export const MVP_RAIL = "lde_mvp_settlement";
@@ -41,11 +41,8 @@ export type MvpBind = {
   created_at: string;
 };
 
-export function formForBand(band: BindBand): { form_id: string; form_hash: string } | null {
-  if (band.form_id === BIND_1M_FORM_ID) {
-    return { form_id: BIND_1M_FORM_ID, form_hash: bind1mFormHash() };
-  }
-  return null;
+export function formForBand(band: BindBand) {
+  return issuedForm(band.form_id);
 }
 
 export function buildSettleMvpIntent(opts: {

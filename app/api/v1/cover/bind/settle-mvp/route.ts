@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { normalizeHex } from "@/lib/auth";
 import { ensureSchema, lookupCover } from "@/lib/db";
 import { ensureMvpBindSchema, insertMvpBind, getMvpBind } from "@/lib/mvp-bind-db";
-import { BIND_1M_FORM_ID, bind1mFormHash, bind1mFormText } from "@/lib/bind-1m-form";
+import { issuedForm } from "@/lib/bind-issued-forms";
 import {
   MVP_ASSET,
   MVP_RAIL,
@@ -56,7 +56,7 @@ export async function GET(req: NextRequest) {
       not_genius_usd: true,
       form_id: form?.form_id || band.form_id,
       form_hash: form?.form_hash || null,
-      form_text: band.form_id === BIND_1M_FORM_ID ? bind1mFormText() : null,
+      form_text: form?.form_text || null,
       band,
       intent,
       intent_canonical: intent ? canonicalSettleMvpIntent(intent) : null,
@@ -98,13 +98,15 @@ export async function POST(req: NextRequest) {
     if (band.purchaser_must_have_lde_wallet && !body.purchaser_lde_wallet_key_id) {
       return NextResponse.json({ error: "lde_wallet_required" }, { status: 403 });
     }
-    if (band.form_id === BIND_1M_FORM_ID) {
-      if (body.form_id && body.form_id !== BIND_1M_FORM_ID) {
-        return NextResponse.json({ error: "form_id_mismatch" }, { status: 409 });
-      }
-      if (body.form_hash && body.form_hash !== bind1mFormHash()) {
-        return NextResponse.json({ error: "form_hash_mismatch" }, { status: 409 });
-      }
+    const form = issuedForm(band.form_id);
+    if (!form) {
+      return NextResponse.json({ error: "form_not_issued" }, { status: 409 });
+    }
+    if (body.form_id && body.form_id !== form.form_id) {
+      return NextResponse.json({ error: "form_id_mismatch" }, { status: 409 });
+    }
+    if (body.form_hash && body.form_hash !== form.form_hash) {
+      return NextResponse.json({ error: "form_hash_mismatch" }, { status: 409 });
     }
     const device_id = normalizeHex(body.device_id);
     const subject = await lookupCover({ device_id });
@@ -145,7 +147,7 @@ export async function POST(req: NextRequest) {
         form_hash: intent.form_hash,
         bind: saved,
         intent,
-        note: "FS-BIND-1M-1.0 accepted on the MVP rail. Premium was not collected in GENIUS USD or USD.",
+        note: `${form.form_id} accepted on the MVP rail. Premium was not collected in GENIUS USD or USD.`,
       },
       { status: 201 }
     );

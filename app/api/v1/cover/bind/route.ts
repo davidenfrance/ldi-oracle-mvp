@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { findBand } from "@/lib/bind-menu";
-import { BIND_10K_FORM_ID, bind10kFormHash, bind10kFormText } from "@/lib/bind-10k-form";
-import { BIND_1M_FORM_ID, bind1mFormHash, bind1mFormText } from "@/lib/bind-1m-form";
+import { issuedForm } from "@/lib/bind-issued-forms";
 
 export const dynamic = "force-dynamic";
 
@@ -12,43 +11,31 @@ export async function GET(req: NextRequest) {
   if (!band) {
     return NextResponse.json({ error: "unknown_band_id" }, { status: 400 });
   }
-  if (band.form_id === BIND_10K_FORM_ID) {
+  const form = issuedForm(band.form_id);
+  if (!form) {
     return NextResponse.json({
-      form_id: BIND_10K_FORM_ID,
-      form_hash: bind10kFormHash(),
-      form_text: bind10kFormText(),
+      form_id: band.form_id,
       band,
-      note: "The Enquirer must read this wording and sign it with its public key before Bind. This is not cover until Bind and premium settlement.",
-    });
-  }
-  if (band.form_id === BIND_1M_FORM_ID) {
-    return NextResponse.json({
-      form_id: BIND_1M_FORM_ID,
-      form_hash: bind1mFormHash(),
-      form_text: bind1mFormText(),
-      band,
-      note: "The Enquirer must read FS-BIND-1M-1.0 and sign form_hash plus the commercial fields with its LDE wallet. MVP settlement uses GENIUS_USD_MVP.",
+      note: "Form text for this band is not issued on this host yet.",
     });
   }
   return NextResponse.json({
-    form_id: band.form_id,
+    form_id: form.form_id,
+    form_hash: form.form_hash,
+    form_text: form.form_text,
     band,
-    note: "Form text for this band is not issued on this host yet.",
+    note: "Read this wording. During MVP testing sign form_hash on POST /api/v1/cover/bind/settle-mvp. GENIUS USD is not collected.",
   });
 }
 
 export async function POST(req: NextRequest) {
   try {
     const body = (await req.json()) as {
-      menu_id?: string;
       band_id?: string;
-      offer_id?: string;
-      device_id?: string;
       enquirer_key_id?: string;
       purchaser_lde_wallet_key_id?: string;
       form_id?: string;
       form_hash?: string;
-      signature?: string;
     };
     if (!body.band_id || !body.enquirer_key_id) {
       return NextResponse.json({ error: "band_id_and_enquirer_key_id_required" }, { status: 400 });
@@ -67,44 +54,21 @@ export async function POST(req: NextRequest) {
         { status: 403 }
       );
     }
-    if (band.form_id === BIND_10K_FORM_ID) {
-      if (body.form_id && body.form_id !== BIND_10K_FORM_ID) {
-        return NextResponse.json({ error: "form_id_mismatch" }, { status: 409 });
-      }
-      if (body.form_hash && body.form_hash !== bind10kFormHash()) {
-        return NextResponse.json({ error: "form_hash_mismatch" }, { status: 409 });
-      }
+    const form = issuedForm(band.form_id);
+    if (form && body.form_id && body.form_id !== form.form_id) {
+      return NextResponse.json({ error: "form_id_mismatch" }, { status: 409 });
     }
-    if (band.form_id === BIND_1M_FORM_ID) {
-      if (body.form_id && body.form_id !== BIND_1M_FORM_ID) {
-        return NextResponse.json({ error: "form_id_mismatch" }, { status: 409 });
-      }
-      if (body.form_hash && body.form_hash !== bind1mFormHash()) {
-        return NextResponse.json({ error: "form_hash_mismatch" }, { status: 409 });
-      }
-      return NextResponse.json(
-        {
-          bound: false,
-          error: "use_settle_mvp_for_1m",
-          form_id: BIND_1M_FORM_ID,
-          form_hash: bind1mFormHash(),
-          note: "GENIUS USD settlement is not on this host. For an MVP Bind sign FS-BIND-1M-1.0 via POST /api/v1/cover/bind/settle-mvp.",
-        },
-        { status: 501 }
-      );
+    if (form && body.form_hash && body.form_hash !== form.form_hash) {
+      return NextResponse.json({ error: "form_hash_mismatch" }, { status: 409 });
     }
     return NextResponse.json(
       {
         bound: false,
-        error: "settlement_not_implemented",
-        form_id: band.form_id,
-        form_hash: band.form_id === BIND_10K_FORM_ID ? bind10kFormHash() : null,
-        menu_id: body.menu_id || null,
-        offer_id: body.offer_id || null,
-        device_id: body.device_id || null,
-        enquirer_key_id: body.enquirer_key_id,
+        error: "use_settle_mvp",
+        form_id: form?.form_id || band.form_id,
+        form_hash: form?.form_hash || null,
         band,
-        note: "Band accepted as a preview. Premium collection and bind_id issuance are not on this host.",
+        note: "GENIUS USD settlement is not on this host. For MVP testing sign the issued form via POST /api/v1/cover/bind/settle-mvp.",
       },
       { status: 501 }
     );

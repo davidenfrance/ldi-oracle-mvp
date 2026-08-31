@@ -49,7 +49,7 @@ const ALL_BANDS: BindBand[] = [
     requires_hsm_presence: false,
     purchaser_must_have_lde_wallet: true,
     claims_require_full_cdd: true,
-    form_id: "FS-BIND-1.0",
+    form_id: "FS-BIND-50K-1.0",
   },
   {
     band_id: "b-250k",
@@ -62,7 +62,7 @@ const ALL_BANDS: BindBand[] = [
     requires_hsm_presence: false,
     purchaser_must_have_lde_wallet: true,
     claims_require_full_cdd: true,
-    form_id: "FS-BIND-1.0",
+    form_id: "FS-BIND-250K-1.0",
   },
   {
     band_id: "b-1m",
@@ -88,7 +88,7 @@ const ALL_BANDS: BindBand[] = [
     requires_hsm_presence: true,
     purchaser_must_have_lde_wallet: true,
     claims_require_full_cdd: true,
-    form_id: "FS-BIND-1.0",
+    form_id: "FS-BIND-5M-1.0",
   },
   {
     band_id: "b-20m",
@@ -101,7 +101,7 @@ const ALL_BANDS: BindBand[] = [
     requires_hsm_presence: true,
     purchaser_must_have_lde_wallet: true,
     claims_require_full_cdd: true,
-    form_id: "FS-BIND-1.0",
+    form_id: "FS-BIND-20M-1.0",
   },
 ];
 
@@ -124,7 +124,7 @@ export function buildBindMenu(opts: {
     currency: "GENIUS_USD",
     bind_available: available,
     note: available
-      ? "Invitation to treat. Not a Bind. Band b-10k uses FS-BIND-10K-1.0. Band b-1m uses FS-BIND-1M-1.0 and requires an LDE wallet."
+      ? "Invitation to treat. MVP testing settles every band on settle-mvp in GENIUS_USD_MVP. GENIUS USD is not collected yet."
       : "Bands shown for planning. Bind is not available on this device until cover_purchasable is true.",
     bands,
   };
