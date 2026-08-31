@@ -24,7 +24,7 @@ export type BindMenu = {
   bands: BindBand[];
 };
 
-const ALL_BANDS: BindBand[] = [
+export const ALL_BANDS: BindBand[] = [
   {
     band_id: "b-10k",
     limit_usd: 10_000,
@@ -105,6 +105,11 @@ const ALL_BANDS: BindBand[] = [
   },
 ];
 
+export function hsmRequiredAboveUsd(): number {
+  const flagged = ALL_BANDS.filter((b) => b.requires_hsm_presence).map((b) => b.limit_usd);
+  return flagged.length ? Math.min(...flagged) - 1 : 20_000_000;
+}
+
 export function buildBindMenu(opts: {
   device_id?: string | null;
   agent_id?: string | null;
@@ -124,7 +129,7 @@ export function buildBindMenu(opts: {
     currency: "GENIUS_USD",
     bind_available: available,
     note: available
-      ? "Invitation to treat. MVP testing settles every band on settle-mvp in GENIUS_USD_MVP. GENIUS USD is not collected yet."
+      ? "Invitation to treat. MVP testing settles every band on settle-mvp in GENIUS_USD_MVP. Use presence to decide HSM bands."
       : "Bands shown for planning. Bind is not available on this device until cover_purchasable is true.",
     bands,
   };

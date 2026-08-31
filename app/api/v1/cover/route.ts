@@ -4,10 +4,19 @@ import { normalizeHex, verifyPublishSignature } from "@/lib/auth";
 import type { CoverRecord } from "@/lib/types";
 import { getOffer, ensureOfferSchema } from "@/lib/offers";
 import { buildBindMenu } from "@/lib/bind-menu";
+import { ensurePresenceSchema, latestPresence } from "@/lib/presence-db";
+import { viewPresence } from "@/lib/presence";
 
 export const dynamic = "force-dynamic";
 
-function present(record: CoverRecord) {
+async function presenceFor(device_id: string | null) {
+  if (!device_id) return viewPresence(null, null);
+  await ensurePresenceSchema();
+  const row = await latestPresence(device_id);
+  return viewPresence(device_id, row);
+}
+
+function present(record: CoverRecord, presence: ReturnType<typeof viewPresence>) {
   const cover_in_force = record.cover_status === "active";
   const cover_purchasable =
     record.cover_purchasable && record.onboarding_complete && record.cover_status !== "cancelled";
@@ -24,13 +33,14 @@ function present(record: CoverRecord) {
     policy_reference: record.policy_reference ?? null,
     issued_at: record.issued_at,
     expires_at: record.expires_at,
+    presence,
     bind_menu: buildBindMenu({
       device_id: record.device_id,
       agent_id: record.agent_id,
       cover_purchasable,
       standing_limit_usd: record.limit_band_usd,
     }),
-    note: "This is not a Bind and not a policy. bind_menu is an invitation to treat.",
+    note: "This is not a Bind and not a policy. bind_menu is an invitation to treat. presence tells the interrogator which HSM bands are executable now.",
   };
 }
 
@@ -76,21 +86,26 @@ export async function GET(req: NextRequest) {
       agent_id,
     });
     if (!record) {
+      const id = device_id ? normalizeHex(device_id) : null;
       return NextResponse.json({
         found: false,
         recorded_controller_name: null,
         cover_status: "none",
         cover_in_force: false,
         cover_purchasable: false,
+        presence: await presenceFor(id),
         bind_menu: buildBindMenu({
-          device_id: device_id ? normalizeHex(device_id) : null,
+          device_id: id,
           agent_id,
           cover_purchasable: false,
         }),
         note: "No live LDI record for this Authenticating Device or agent.",
       });
     }
-    return NextResponse.json({ found: true, ...present(record) });
+    return NextResponse.json({
+      found: true,
+      ...present(record, await presenceFor(record.device_id)),
+    });
   } catch (err) {
     const message = err instanceof Error ? err.message : "query_failed";
     return NextResponse.json({ error: message }, { status: 500 });
@@ -129,7 +144,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "invalid_device_signature" }, { status: 401 });
     }
     const saved = await upsertRecord({ ...body, status: "active" });
-    return NextResponse.json({ ok: true, record: present(saved) }, { status: 201 });
+    return NextResponse.json(
+      { ok: true, record: present(saved, await presenceFor(saved.device_id)) },
+      { status: 201 }
+    );
   } catch (err) {
     const message = err instanceof Error ? err.message : "publish_failed";
     return NextResponse.json({ error: message }, { status: 500 });
