@@ -106,8 +106,8 @@ export const ALL_BANDS: BindBand[] = [
 ];
 
 export function hsmRequiredAboveUsd(): number {
-  const flagged = ALL_BANDS.filter((b) => b.requires_hsm_presence).map((b) => b.limit_usd);
-  return flagged.length ? Math.min(...flagged) - 1 : 20_000_000;
+  const noHsm = ALL_BANDS.filter((b) => !b.requires_hsm_presence).map((b) => b.limit_usd);
+  return noHsm.length ? Math.max(...noHsm) : 0;
 }
 
 export function buildBindMenu(opts: {
