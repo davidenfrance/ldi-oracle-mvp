@@ -1,5 +1,6 @@
 import { neon } from "@neondatabase/serverless";
 import type { MvpBind } from "./mvp-settle";
+import type { ReceiptView } from "./receipt-verify";
 
 function sql() {
   const url = process.env.DATABASE_URL;
@@ -31,10 +32,16 @@ export async function ensureMvpBindSchema(): Promise<void> {
       created_at TIMESTAMPTZ NOT NULL DEFAULT now()
     )
   `;
+  await db`ALTER TABLE mvp_binds ADD COLUMN IF NOT EXISTS receipt_id TEXT`;
+  await db`ALTER TABLE mvp_binds ADD COLUMN IF NOT EXISTS receipt_query_id TEXT`;
+  await db`ALTER TABLE mvp_binds ADD COLUMN IF NOT EXISTS receipt_json TEXT`;
   await db`CREATE INDEX IF NOT EXISTS mvp_binds_device_id ON mvp_binds (device_id)`;
 }
 
-function rowToBind(row: Record<string, unknown>): MvpBind {
+function rowToBind(row: Record<string, unknown>): MvpBind & {
+  receipt_id?: string | null;
+  receipt_query_id?: string | null;
+} {
   return {
     mvp_bind_id: String(row.mvp_bind_id),
     settlement_id: String(row.settlement_id),
@@ -54,23 +61,29 @@ function rowToBind(row: Record<string, unknown>): MvpBind {
     menu_id: row.menu_id ? String(row.menu_id) : null,
     signature: String(row.signature),
     created_at: new Date(String(row.created_at)).toISOString(),
+    receipt_id: row.receipt_id ? String(row.receipt_id) : null,
+    receipt_query_id: row.receipt_query_id ? String(row.receipt_query_id) : null,
   };
 }
 
-export async function insertMvpBind(bind: MvpBind): Promise<MvpBind> {
+export async function insertMvpBind(bind: MvpBind, receipt?: ReceiptView | null): Promise<MvpBind> {
   const db = sql();
+  const receiptId = receipt?.receipt_id || null;
+  const queryId = receipt?.query_id || null;
+  const receiptJson = receipt ? JSON.stringify(receipt) : null;
   const rows = await db`
     INSERT INTO mvp_binds (
       mvp_bind_id, settlement_id, device_id, agent_id, purchaser_lde_wallet_key_id,
       band_id, limit_usd, premium_usd, asset, rail, not_genius_usd, insured_event,
-      cover_starts_at, cover_ends_at, claims_until, menu_id, signature, created_at
+      cover_starts_at, cover_ends_at, claims_until, menu_id, signature, created_at,
+      receipt_id, receipt_query_id, receipt_json
     ) VALUES (
       ${bind.mvp_bind_id}, ${bind.settlement_id}, ${bind.device_id}, ${bind.agent_id},
       ${bind.purchaser_lde_wallet_key_id}, ${bind.band_id}, ${bind.limit_usd},
       ${bind.premium_usd}, ${bind.asset}, ${bind.rail}, true, ${bind.insured_event},
       ${bind.cover_starts_at}::timestamptz, ${bind.cover_ends_at}::timestamptz,
       ${bind.claims_until}::timestamptz, ${bind.menu_id}, ${bind.signature},
-      ${bind.created_at}::timestamptz
+      ${bind.created_at}::timestamptz, ${receiptId}, ${queryId}, ${receiptJson}
     )
     RETURNING *
   `;
