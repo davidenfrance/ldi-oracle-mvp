@@ -6,6 +6,7 @@ import { getOffer, ensureOfferSchema } from "@/lib/offers";
 import { buildBindMenu } from "@/lib/bind-menu";
 import { ensurePresenceSchema, latestPresence } from "@/lib/presence-db";
 import { viewPresence } from "@/lib/presence";
+import { assessReceipt, parseReceiptHeader, type QueryReceipt } from "@/lib/receipt-verify";
 
 export const dynamic = "force-dynamic";
 
@@ -55,6 +56,13 @@ export async function GET(req: NextRequest) {
     if (!device_id && !agent_id) {
       return NextResponse.json({ error: "device_id_or_agent_id_required" }, { status: 400 });
     }
+    const receipt = parseReceiptHeader(req.headers.get("x-ldedi-query-receipt"));
+    const receipt_view = assessReceipt(receipt, {
+      subject_key_id: device_id || undefined,
+    });
+    if (receipt && !receipt_view.ok) {
+      return NextResponse.json({ error: "invalid_query_receipt", receipt_view }, { status: 401 });
+    }
     if (!open) {
       await ensureOfferSchema();
       if (!accept_id) {
@@ -64,21 +72,22 @@ export async function GET(req: NextRequest) {
             form_id: "FS-QF-1.2",
             offer: "POST /api/v1/cover/offer",
             accept: "POST /api/v1/cover/accept",
-            note: "Confirmation is released only after the Enquirer returns a signed FS-QF-1.2 acceptance.",
+            receipt_view,
+            note: "Confirmation is released only after the Enquirer returns a signed FS-QF-1.2 acceptance. A live LDEDI receipt is accepted if presented.",
           },
           { status: 403 }
         );
       }
       const offer = await getOffer(accept_id);
       if (!offer || offer.status !== "accepted") {
-        return NextResponse.json({ error: "accept_required" }, { status: 403 });
+        return NextResponse.json({ error: "accept_required", receipt_view }, { status: 403 });
       }
       const wantDev = device_id ? normalizeHex(device_id) : null;
       if (wantDev && offer.device_id && offer.device_id !== wantDev) {
-        return NextResponse.json({ error: "offer_device_mismatch" }, { status: 403 });
+        return NextResponse.json({ error: "offer_device_mismatch", receipt_view }, { status: 403 });
       }
       if (agent_id && offer.agent_id && offer.agent_id !== agent_id) {
-        return NextResponse.json({ error: "offer_agent_mismatch" }, { status: 403 });
+        return NextResponse.json({ error: "offer_agent_mismatch", receipt_view }, { status: 403 });
       }
     }
     const record = await lookupCover({
@@ -99,12 +108,14 @@ export async function GET(req: NextRequest) {
           agent_id,
           cover_purchasable: false,
         }),
+        receipt_view,
         note: "No live LDI record for this Authenticating Device or agent.",
       });
     }
     return NextResponse.json({
       found: true,
       ...present(record, await presenceFor(record.device_id)),
+      receipt_view,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "query_failed";
